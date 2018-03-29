@@ -18,10 +18,26 @@
 
 /* ------------------------------- Macros -------------------------------- */
 
+/*
+Bitwise AND of k with 0x1f to recognise the action to be taken
+*/
 #define CTRL_KEY(k) ((k) & 0x1f)
+
+/*
+Highlight a given string on the terminal
+*/
 #define BANNER "\033[7m"
+
+/*
+Undo the highlighting of string on terminal
+*/
 #define RESET "\x1B[0m"
-#define ENDH "\033[27m"
+
+/*
+Number of times the user has to enter ^Q to exit with unsaved changes
+*/
+#define CONFIRM_EXIT 2
+
 
 /* ------------------------- Structure Definitions ------------------------ */
 
@@ -42,7 +58,8 @@ struct editorConfig {
     int numlines;
     int rows;
     int columns;
-    char *filename;
+    int status;
+    char * filename;
     erow * line;
     struct termios orig_termios;
 };
@@ -126,7 +143,7 @@ void editor_open(char * filename);
 /*
 Add line of text to display buffer
 */
-void add_line(char * textline, size_t len);
+void add_line(int pos, char * textline, size_t len);
 
 /*
 Vertical scrolling through large files
@@ -136,7 +153,7 @@ void scroll();
 /*
 Display menu bar at the bottom of the page
 */
-void menu_bar();
+void menu_bar(int choice);
 
 /*
 Updates the content of a line
@@ -162,5 +179,35 @@ char * format_lines(int * len);
 Save the content of edited file to disk
 */
 void save();
+
+/*
+Wrapper function for remove_char
+*/
+void remove_char_wrapper();
+
+/*
+Removes a character from a given line
+*/
+void remove_char(erow * line, int pos);
+
+/*
+Free the memory allocated to a line
+*/
+void mem_remove_line(erow * line);
+
+/*
+Remove a line of text from the document
+*/
+void remove_line(int pos);
+
+/*
+Concatenate 'line1' and 'line2' as 'line1line2'
+*/
+void concat_lines(erow * line1, char * line2, size_t len);
+
+/*
+Inserts a newline at the cursor position
+*/
+void insert_newline();
 
 #endif 

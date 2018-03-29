@@ -35,6 +35,7 @@ void init() {
     E.y = 0;
     E.numlines = 0;
     E.row_offset = 0;
+    E.status = 0;
     E.line = NULL;
     E.filename = NULL;
     
@@ -128,12 +129,21 @@ void process_key() {
 
     int ch = editor_read();
 
+    static int confirm_exit = CONFIRM_EXIT;
+
     switch(ch){
         case CTRL_KEY('q'):
-            write(STDOUT_FILENO, "\x1b[2J", 4);
-            write(STDOUT_FILENO, "\x1b[H", 3);
-            disable_raw_mode();
-            exit(0);
+            if(E.status && confirm_exit > 0){
+                menu_bar(1);
+                confirm_exit--;
+                return;
+            }
+            else{
+                write(STDOUT_FILENO, "\x1b[2J", 4);
+                write(STDOUT_FILENO, "\x1b[H", 3);
+                disable_raw_mode();
+                exit(0);
+            }
             break;
         case ARROW_UP:
             move_cursor(ch);
@@ -148,8 +158,10 @@ void process_key() {
             move_cursor(ch);
             break;
         case '\r':
+            insert_newline();
             break;
         case BACKSPACE:
+            remove_char_wrapper();
             break;
         case CTRL_KEY('h'):
             break;
@@ -164,7 +176,9 @@ void process_key() {
             insert_char_wrapper(ch);
             break;
     }
-
+    
+    confirm_exit = CONFIRM_EXIT;
+    
     return;
 }
 
@@ -175,7 +189,7 @@ void refresh() {
     write(STDOUT_FILENO, "\x1b[H", 3);
     
     display();
-    menu_bar();
+    menu_bar(0);
 
     printf("\x1b[%d;%dH", (E.y - E.row_offset) + 2, E.x + 1);
     fflush(stdout);
@@ -354,8 +368,10 @@ void editor_open(char * filename) {
             linelen--;
         }
 
-        add_line(textline, linelen);
+        add_line(E.numlines, textline, linelen);
     }
+
+    E.status = 0;
 
     free(textline);
     fclose(fp);
@@ -363,11 +379,14 @@ void editor_open(char * filename) {
     return;
 }
 
-void add_line(char * textline, size_t len) {
+void add_line(int pos, char * textline, size_t len) {
+
+    if (pos < 0 || pos > E.numlines){
+        return;
+    }
 
     E.line = (erow *)realloc(E.line, sizeof(erow) * (E.numlines + 1));
-    
-    int pos = E.numlines;
+    memmove(&E.line[pos + 1], &E.line[pos], sizeof(erow) * (E.numlines - pos));
     
     E.line[pos].size = len;
     E.line[pos].chars = (char *)malloc(sizeof(char) * (len + 1));
@@ -379,6 +398,8 @@ void add_line(char * textline, size_t len) {
     
     E.line[pos].buffer_size = 0;
     E.line[pos].buffer = NULL;
+
+    E.status = 1;
 
     update_line(&E.line[pos]);
 
@@ -418,7 +439,7 @@ void scroll() {
     return;
 }
 
-void menu_bar(){
+void menu_bar(int choice){
 
     int j = 0;
 
@@ -449,7 +470,7 @@ void menu_bar(){
 void insert_char_wrapper(int ch){
 
     if (E.y == E.numlines) {
-        add_line("", 0);
+        add_line(E.numlines, "", 0);
     }
 
     insert_char(&E.line[E.y], E.x, ch);
@@ -472,7 +493,115 @@ void insert_char(erow * line, int pos, int ch) {
     line->size++;
     line->chars[pos] = ch;
     
+    E.status = 1;
+
     update_line(line);
+
+    return;
+}
+
+void remove_char_wrapper() {
+
+    if (E.y == E.numlines){
+        return;
+    }
+    if (E.x == 0 && E.y == 0){
+        return;
+    } 
+    
+    erow * line = &E.line[E.y];
+
+    if (E.x > 0) {
+        remove_char(line, E.x - 1);
+        E.x--;
+    }
+    else {
+        E.x = E.line[E.y - 1].size;
+        concat_lines(&E.line[E.y - 1], line->chars, line->size);
+        remove_line(E.y);
+        E.y--;
+    }
+
+    return;
+}
+
+void remove_char(erow * line, int pos) {
+
+    if (pos < 0 || pos >= line->size){
+        return;
+    }
+
+    memmove(&line->chars[pos], &line->chars[pos + 1], line->size - pos);
+
+    line->size--;
+
+    E.status = 1;
+
+    update_line(line);
+
+    return;
+}
+
+void mem_remove_line(erow * line) {
+
+    free(line->buffer);
+    free(line->chars);
+
+    return;
+}
+
+void remove_line(int pos) {
+
+    if (pos < 0 || pos >= E.numlines){
+        return;
+    }
+
+    mem_remove_line(&E.line[pos]);
+    
+    memmove(&E.line[pos], &E.line[pos + 1], sizeof(erow) * (E.numlines - pos - 1));
+
+    E.numlines--;
+    E.status = 1;
+
+    return;
+}
+
+void concat_lines(erow * line1, char * line2, size_t len) {
+
+    line1->chars = (char *)realloc(line1->chars, sizeof(char) * (line1->size + len + 1));
+
+    memcpy(&line1->chars[line1->size], line2, len);
+
+    line1->size += len;
+    line1->chars[line1->size] = '\0';
+
+    update_line(line1);
+
+    E.status = 1;
+
+    return;
+}
+
+void insert_newline() {
+
+    if (E.x == 0) {
+        add_line(E.y, "", 0);
+    }
+    else {
+        erow * line = &E.line[E.y];
+
+        add_line(E.y + 1, &line->chars[E.x], line->size - E.x);
+        
+        line = &E.line[E.y];
+
+        line->size = E.x;
+        line->chars[line->size] = '\0';
+
+        update_line(line);
+    }
+
+    E.y++;
+    E.x = 0;
 
     return;
 }
@@ -514,10 +643,12 @@ void save() {
         return;
     } 
     
-    fd = open(E.filename, O_RDWR | O_CREAT, 0644);
+    fd = open(E.filename, O_CREAT | O_RDWR , 0644);
     ftruncate(fd, len);
     write(fd, buffer, len);
     
+    E.status = 0;
+
     close(fd);
     free(buffer);
 
