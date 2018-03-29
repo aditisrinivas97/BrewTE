@@ -6,10 +6,10 @@ opflag = -o editor
 all: run
 
 run: compile
-	./editor
+	./editor $(ARGS)
 
 debugrun: compile
-	valgrind --track-origins=yes ./editor
+	valgrind --track-origins=yes ./editor $(ARGS)
 
 compile:
 	gcc -Wall -g $(files) $(opflag)

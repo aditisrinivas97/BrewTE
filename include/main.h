@@ -36,10 +36,11 @@ typedef struct erow erow;
 struct editorConfig {
     int x;
     int y;
+    int row_offset;
     int numlines;
-    erow line;
     int rows;
     int columns;
+    erow * line;
     struct termios orig_termios;
 };
 
@@ -116,6 +117,21 @@ void display();
 /*
 Open editor for reading / writing to file
 */
-void editor_open();
+void editor_open(char * filename);
+
+/*
+Add line of text to display buffer
+*/
+void add_line(char * textline, size_t len);
+
+/*
+Vertical scrolling through large files
+*/
+void scroll();
+
+/*
+Display menu bar at the bottom of the page
+*/
+void menu_bar();
 
 #endif 

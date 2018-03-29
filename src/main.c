@@ -8,12 +8,15 @@ Econfig E;
 
 /* ---------------------------- Main Function ---------------------------- */
 
-int main(void){
+int main(int argc, char ** argv){
 
     enable_raw_mode();
 
     init();
-    editor_open();
+
+    if(argc >= 2){
+        editor_open(argv[1]);
+    }
 
     while (1) {
 
@@ -31,6 +34,8 @@ void init() {
     E.x = 0;
     E.y = 0;
     E.numlines = 0;
+    E.row_offset = 0;
+    E.line = NULL;
     
     write(STDOUT_FILENO, "\x1b[2J", 4);
 
@@ -141,10 +146,16 @@ void process_key() {
 }
 
 void refresh() {
+    
+    scroll();
 
     write(STDOUT_FILENO, "\x1b[H", 3);
     
     display();
+    menu_bar();
+
+    printf("\x1b[%d;%dH", (E.y - E.row_offset) + 1, E.x + 1);
+    fflush(stdout);
     
     return;
     
@@ -220,7 +231,7 @@ void move_cursor(int key) {
             }
             break;
         case ARROW_DOWN:
-            if (E.y != E.rows - 1) {
+            if (E.y < E.numlines) {
                 E.y++;
             }
             break;
@@ -232,10 +243,15 @@ void move_cursor(int key) {
 
 void display(){
 
-    int i = 0, j = 0;
-    int textread = 0;
+    int i = 0, j = 0, max_len = 0;
+    int textread = 0, count_lines = 0, file_line = 0;
 
     for(i = 0; i < E.rows; i++){
+        
+        write(STDOUT_FILENO, "\x1b[K", 3);
+        
+        file_line = i + E.row_offset - 1;
+        
         if(i == 0){
             j = 0;
             while(j < E.columns/2 - 25){
@@ -256,33 +272,26 @@ void display(){
             fflush(stdout);
         }
         if(E.numlines > 0 && i > 0 && !textread){
-            textread = 1;
-            int len = E.line.size;
-            if (len > E.columns) 
+            int len = E.line[file_line].size;
+            count_lines++;
+
+            if (len > E.columns){
                 len = E.columns;
-            write(STDIN_FILENO, E.line.chars, len);
+            } 
+
+            if(len > max_len){
+                max_len = len;
+            }
+
+            if(count_lines > E.numlines){
+                textread = 1;
+            }
+            else{
+                write(STDOUT_FILENO, E.line[file_line].chars, len);
+            }
         }
         if(i < E.rows - 1){
             write(STDIN_FILENO, "\r\n", 2);   
-        }
-        if(i == E.rows - 1){
-            j = 0;
-            while(j < E.columns/2 - 10){
-                printf(BANNER " " RESET);
-                j++;
-            }
-            fflush(stdout);
-            j += 24;
-
-            printf(BANNER "Quit : ^Q     Save : ^S" RESET);
-            fflush(stdout);
-
-            while(j < E.columns){
-                printf(BANNER " " RESET);
-                j++;
-            }
-            printf(RESET);
-            fflush(stdout);
         }
     }
     
@@ -293,17 +302,89 @@ void display(){
 }
 
 
-void editor_open() {
-    char * textline = "Hello, world!";
-    ssize_t linelen = 13;
+void editor_open(char * filename) {
+    
+    FILE *fp = fopen(filename, "r");
 
-    E.line.size = linelen;
-    E.line.chars = malloc(linelen + 1);
+    if (!fp){
+        die("fopen");
+    }
     
-    memcpy(E.line.chars, textline, linelen);
+    char * textline = NULL;
     
-    E.line.chars[linelen] = '\0';
-    E.numlines = 1;
+    size_t linecap = 0;
+    ssize_t linelen;
+  
+
+    while ((linelen = getline(&textline, &linecap, fp)) != -1) {
+        while (linelen > 0 && (textline[linelen - 1] == '\n' || textline[linelen - 1] == '\r')){
+            linelen--;
+        }
+
+        add_line(textline, linelen);
+    }
+
+    free(textline);
+    fclose(fp);
+
+    return;
+}
+
+void add_line(char * textline, size_t len) {
+
+    E.line = (erow *)realloc(E.line, sizeof(erow) * (E.numlines + 1));
+    
+    int pos = E.numlines;
+    
+    E.line[pos].size = len;
+    E.line[pos].chars = (char *)malloc(sizeof(char) * (len + 1));
+
+    memcpy(E.line[pos].chars, textline, len);
+
+    E.line[pos].chars[len] = '\0';
+    E.numlines++;
+    
+    return;
+}
+
+void scroll() {
+
+    if (E.y < E.row_offset) {
+        E.row_offset = E.y;
+    }
+
+    if (E.y >= E.row_offset + E.rows) {
+        E.row_offset = E.y - E.rows + 1;
+    }
+    
+
+    return;
+}
+
+void menu_bar(){
+
+    int j = 0;
+
+    printf("\x1b[%d;%dH", E.rows, 1);
+    fflush(stdout);
+
+    while(j < E.columns/2 - 10){
+        printf(BANNER " " RESET);
+        j++;
+    }
+    fflush(stdout);
+    j += 24;
+
+    printf(BANNER "Quit : ^Q     Save : ^S" RESET);
+    fflush(stdout);
+
+    while(j < E.columns){
+        printf(BANNER " " RESET);
+        j++;
+    }
+
+    printf(RESET);
+    fflush(stdout);
 
     return;
 }
