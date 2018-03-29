@@ -6,6 +6,8 @@
 
 Econfig E;
 
+int check_unsaved = 0;
+
 /* ---------------------------- Main Function ---------------------------- */
 
 int main(int argc, char ** argv){
@@ -134,7 +136,8 @@ void process_key() {
     switch(ch){
         case CTRL_KEY('q'):
             if(E.status && confirm_exit > 0){
-                menu_bar(1);
+                check_unsaved = 1;
+                menu_bar(check_unsaved);
                 confirm_exit--;
                 return;
             }
@@ -178,7 +181,7 @@ void process_key() {
     }
     
     confirm_exit = CONFIRM_EXIT;
-    
+    check_unsaved = 0;
     return;
 }
 
@@ -189,7 +192,7 @@ void refresh() {
     write(STDOUT_FILENO, "\x1b[H", 3);
     
     display();
-    menu_bar(0);
+    menu_bar(check_unsaved);
 
     printf("\x1b[%d;%dH", (E.y - E.row_offset) + 2, E.x + 1);
     fflush(stdout);
@@ -443,27 +446,52 @@ void menu_bar(int choice){
 
     int j = 0;
 
-    printf("\x1b[%d;%dH", E.rows, 1);
-    fflush(stdout);
+    switch(choice){
+        case 0:
+            printf("\x1b[%d;%dH", E.rows, 1);
+            fflush(stdout);
 
-    while(j < E.columns/2 - 10){
-        printf(BANNER " " RESET);
-        j++;
+            while(j < E.columns/2 - 10){
+                printf(BANNER " " RESET);
+                j++;
+            }
+            fflush(stdout);
+            j += 24;
+
+            printf(BANNER "Quit : ^Q     Save : ^S" RESET);
+            fflush(stdout);
+
+            while(j < E.columns){
+                printf(BANNER " " RESET);
+                j++;
+            }
+
+            printf(RESET);
+            fflush(stdout);
+            break;
+        case 1:
+            printf("\x1b[%d;%dH", E.rows, 1);
+            fflush(stdout);
+
+            while(j < E.columns/2 - 30){
+                printf(BANNER " " RESET);
+                j++;
+            }
+            fflush(stdout);
+            j += 58;
+
+            printf(BANNER "You have unsaved changes! To quit anyway, enter ^Q twice!" RESET);
+            fflush(stdout);
+
+            while(j < E.columns){
+                printf(BANNER " " RESET);
+                j++;
+            }
+
+            printf(RESET);
+            fflush(stdout);
+            break;
     }
-    fflush(stdout);
-    j += 24;
-
-    printf(BANNER "Quit : ^Q     Save : ^S" RESET);
-    fflush(stdout);
-
-    while(j < E.columns){
-        printf(BANNER " " RESET);
-        j++;
-    }
-
-    printf(RESET);
-    fflush(stdout);
-
     return;
 }
 
