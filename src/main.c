@@ -36,6 +36,7 @@ void init() {
     E.numlines = 0;
     E.row_offset = 0;
     E.line = NULL;
+    E.filename = NULL;
     
     write(STDOUT_FILENO, "\x1b[2J", 4);
 
@@ -135,10 +136,32 @@ void process_key() {
             exit(0);
             break;
         case ARROW_UP:
+            move_cursor(ch);
+            break;
         case ARROW_DOWN:
+            move_cursor(ch);
+            break;
         case ARROW_LEFT:
+            move_cursor(ch);
+            break;
         case ARROW_RIGHT:
             move_cursor(ch);
+            break;
+        case '\r':
+            break;
+        case BACKSPACE:
+            break;
+        case CTRL_KEY('h'):
+            break;
+        case CTRL_KEY('l'):
+            break;
+        case '\x1b':
+            break;
+        case CTRL_KEY('s'):
+            save();
+            break;
+        default:
+            insert_char_wrapper(ch);
             break;
     }
 
@@ -154,7 +177,7 @@ void refresh() {
     display();
     menu_bar();
 
-    printf("\x1b[%d;%dH", (E.y - E.row_offset) + 1, E.x + 1);
+    printf("\x1b[%d;%dH", (E.y - E.row_offset) + 2, E.x + 1);
     fflush(stdout);
     
     return;
@@ -282,7 +305,7 @@ void display(){
             fflush(stdout);
         }
         if(E.numlines > 0 && i > 0 && !textread){
-            int len = E.line[file_line].size;
+            int len = E.line[file_line].buffer_size;
             count_lines++;
 
             if (len > E.columns){
@@ -297,16 +320,13 @@ void display(){
                 textread = 1;
             }
             else{
-                write(STDOUT_FILENO, E.line[file_line].chars, len);
+                write(STDOUT_FILENO, E.line[file_line].buffer, len);
             }
         }
         if(i < E.rows - 1){
             write(STDIN_FILENO, "\r\n", 2);   
         }
     }
-    
-    printf("\x1b[%d;%dH", E.y + 1, E.x + 1);
-    fflush(stdout);
 
     return;
 }
@@ -315,6 +335,9 @@ void display(){
 void editor_open(char * filename) {
     
     FILE *fp = fopen(filename, "r");
+
+    free(E.filename);
+    E.filename = strdup(filename);
 
     if (!fp){
         die("fopen");
@@ -354,6 +377,30 @@ void add_line(char * textline, size_t len) {
     E.line[pos].chars[len] = '\0';
     E.numlines++;
     
+    E.line[pos].buffer_size = 0;
+    E.line[pos].buffer = NULL;
+
+    update_line(&E.line[pos]);
+
+    return;
+}
+
+void update_line(erow * line) {
+
+    int j;
+    int index = 0;
+
+    free(line->buffer);
+    
+    line->buffer = (char *)malloc(sizeof(char) * (line->size + 1));
+    
+    for (j = 0; j < line->size; j++) {
+        line->buffer[index++] = line->chars[j];
+    }
+    
+    line->buffer[index] = '\0';
+    line->buffer_size = index;
+
     return;
 }
 
@@ -395,6 +442,84 @@ void menu_bar(){
 
     printf(RESET);
     fflush(stdout);
+
+    return;
+}
+
+void insert_char_wrapper(int ch){
+
+    if (E.y == E.numlines) {
+        add_line("", 0);
+    }
+
+    insert_char(&E.line[E.y], E.x, ch);
+    
+    E.x++;
+
+    return;
+}
+
+void insert_char(erow * line, int pos, int ch) {
+    
+    if(pos < 0 || pos > line->size){
+        pos = line->size;
+    }
+
+    line->chars = (char *)realloc(line->chars, sizeof(char) * (line->size + 2));
+
+    memmove(&line->chars[pos + 1], &line->chars[pos], line->size - pos + 1);
+
+    line->size++;
+    line->chars[pos] = ch;
+    
+    update_line(line);
+
+    return;
+}
+
+char * format_lines(int * len) {
+
+    int lines_length = 0, i = 0;
+
+    for(i = 0; i < E.numlines; i++){
+        lines_length += E.line[i].size + 1;
+    }
+    
+    *len = lines_length;
+    
+    char * buffer = (char * )malloc(sizeof(char) * lines_length);
+    char * temp = buffer;
+
+    for (i = 0; i < E.numlines; i++) {
+
+        memcpy(temp, E.line[i].chars, E.line[i].size);
+
+        temp += E.line[i].size;
+        *temp = '\n';
+
+        temp++;
+
+    }
+
+  return buffer;
+
+}
+
+void save() {
+
+    int len = -1, fd = -1;
+    char * buffer = format_lines(&len);
+
+    if (E.filename == NULL){
+        return;
+    } 
+    
+    fd = open(E.filename, O_RDWR | O_CREAT, 0644);
+    ftruncate(fd, len);
+    write(fd, buffer, len);
+    
+    close(fd);
+    free(buffer);
 
     return;
 }

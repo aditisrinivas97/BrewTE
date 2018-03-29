@@ -27,8 +27,10 @@
 
 
 struct erow {
-  int size;
-  char *chars;
+    int size;
+    char *chars;
+    int buffer_size;
+    char * buffer;
 };
 
 typedef struct erow erow;
@@ -40,6 +42,7 @@ struct editorConfig {
     int numlines;
     int rows;
     int columns;
+    char *filename;
     erow * line;
     struct termios orig_termios;
 };
@@ -49,6 +52,7 @@ typedef struct editorConfig Econfig;
 /* ------------------------- Global Variables ------------------------ */
 
 enum editorKey {
+    BACKSPACE = 127,
     ARROW_LEFT = 1000,
     ARROW_RIGHT,
     ARROW_UP,
@@ -133,5 +137,30 @@ void scroll();
 Display menu bar at the bottom of the page
 */
 void menu_bar();
+
+/*
+Updates the content of a line
+*/
+void update_line(erow * line);
+
+/*
+Insert a character into a line
+*/
+void insert_char(erow * line, int pos, int ch);
+
+/*
+Wrapper function for insert_char
+*/
+void insert_char_wrapper(int ch);
+
+/*
+Format contents of a file to be stored on disk
+*/
+char * format_lines(int * len);
+
+/*
+Save the content of edited file to disk
+*/
+void save();
 
 #endif 
