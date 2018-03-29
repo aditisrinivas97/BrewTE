@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <ctype.h>
+#include <time.h>
 
 /* ------------------------------- Macros -------------------------------- */
 

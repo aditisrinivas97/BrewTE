@@ -351,6 +351,9 @@ void display(){
 
 void editor_open(char * filename) {
     
+    int fd = open(filename, O_CREAT | O_RDWR , 0644);
+    close(fd);
+
     FILE *fp = fopen(filename, "r");
 
     free(E.filename);
@@ -668,7 +671,14 @@ void save() {
     char * buffer = format_lines(&len);
 
     if (E.filename == NULL){
-        return;
+        
+        time_t t = time(NULL);
+
+        struct tm * tm = localtime(&t);
+        char s[64];
+        strftime(s, sizeof(s), "%c", tm);
+
+        E.filename = s;
     } 
     
     fd = open(E.filename, O_CREAT | O_RDWR , 0644);
