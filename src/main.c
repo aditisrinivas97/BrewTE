@@ -214,15 +214,25 @@ int window_size(int *rows, int *cols) {
 
 void move_cursor(int key) {
 
+    erow * line = (E.y >= E.numlines) ? NULL : &E.line[E.y];
+
     switch (key) {
         case ARROW_LEFT:
             if (E.x != 0) {
                 E.x--;
             }
+            else if (E.y > 0) {
+                E.y--;
+                E.x = E.line[E.y].size;
+            }
             break;
         case ARROW_RIGHT:
-            if (E.x != E.columns - 1) {
+            if (line && E.x < line->size) {
                 E.x++;
+            }
+            else if(line && E.x == line->size){
+                E.x = 0;
+                E.y++;
             }
             break;
         case ARROW_UP:
