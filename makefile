@@ -1,6 +1,6 @@
 username = $(shell whoami)
 SRCDIR = src
-files = $(SRCDIR)/main.c
+files = $(SRCDIR)/main.c $(SRCDIR)/terminal.c $(SRCDIR)/display.c $(SRCDIR)/lineops.c $(SRCDIR)/charops.c
 opflag = -o editor
 
 all: run
