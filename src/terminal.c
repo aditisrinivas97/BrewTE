@@ -21,6 +21,7 @@ void init() {
 
 void disable_raw_mode() {
 
+    printf("\e[3J");
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &brewte.orig_termios) == -1){
         die("tcsetattr");
     }

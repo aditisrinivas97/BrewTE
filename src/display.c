@@ -1,7 +1,7 @@
 #include "../include/display.h"
 
 void display(){
-
+        
     int i = 0, j = 0;
     int textread = 0, count_lines = 0, file_line = 0;
 
